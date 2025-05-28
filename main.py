@@ -42,7 +42,7 @@ def is_file_link(response, url, strict=True) -> bool:
         }
 
         WHITELIST_NOT_FILES_EXTENSIONS = {
-            '.ico', '.xml', '.json', '.js', '.css', '.txt', '.svg', '.png'
+            '.ico', '.xml', '.json', '.js', '.css', '.txt', '.svg', '.png', '.webmanifest'
         }
 
         if any(content_type.startswith(t) for t in WHITELIST_NOT_FILES_CONTENT_TYPES):
@@ -64,7 +64,7 @@ def is_file_link(response, url, strict=True) -> bool:
 
 
 def parse_html_for_links(soup, base_url: str, visited: set, start_url: str, queue: deque) -> None:
-    """Парсит HTML-страницу для извлечения ссылок из тегов a, link, button."""
+    global STOP
     for tag in soup.find_all(['a', 'link', 'button']):
         href = extract_href_from_tag(tag)
         if not href:
@@ -75,14 +75,19 @@ def parse_html_for_links(soup, base_url: str, visited: set, start_url: str, queu
         if is_internal_link(start_url, abs_url) and abs_url not in visited:
             try:
                 r = requests.get(abs_url, timeout=10, stream=True)
-                if is_file_link(r, abs_url, strict=False):
+
+                # Определяем strict=True только для <link>
+                strict_mode = tag.name == 'link'
+
+                if is_file_link(r, abs_url, strict=strict_mode):
                     logger.info(f'Найдена ссылка на файл: {abs_url}')
-                    state['stop'] = True
-                    return  # Выход из цикла, т.к. файл найден
+                    STOP = True
+                    return  # Останов, файл найден
             except Exception as e:
                 logger.warning(f'Ошибка запроса к {abs_url}: {e}')
                 continue
             queue.append(abs_url)
+
 
 
 def extract_href_from_tag(tag) -> str:
