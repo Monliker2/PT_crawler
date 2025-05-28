@@ -20,7 +20,10 @@ def is_file_link(response, url):
         return True
 
     content_type = response.headers.get('Content-Type', '')
-    if content_type and not content_type.startswith('text/html'):
+
+    logger.debug(f'Content type: {content_type}')
+
+    if content_type and not content_type.startswith('text/html') and not content_type.startswith('video/'):
         return True
 
     path = urlparse(url).path
@@ -61,7 +64,7 @@ def scan(start_url, timeout=30):
 
         if 'text/html' in response.headers.get('Content-Type', ''):
             soup = BeautifulSoup(response.text, 'html.parser')
-            for link in soup.find_all('a', href=True):
+            for link in soup.find_all(['a', 'link'], href=True):
                 href = link['href'].strip()
                 abs_url = urljoin(url, href)
 
