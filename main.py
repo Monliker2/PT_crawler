@@ -2,13 +2,33 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 import time
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlunparse
 from collections import deque
 import sys
 
 # Настройка логгера
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+def get_parent_url(url):
+    """
+    Возвращает URL родительской папки (на уровень выше).
+    Если достигнут корень, возвращает None.
+    """
+    parsed = urlparse(url)
+    path = parsed.path
+
+    if path == '/' or path == '':
+        return None
+
+    # Удаляем последний сегмент пути
+    parent_path = '/'.join(path.rstrip('/').split('/')[:-1])
+    if not parent_path:
+        parent_path = '/'
+
+    new_parsed = parsed._replace(path=parent_path)
+    return urlunparse(new_parsed)
 
 def is_file_link(response, url):
     """
@@ -21,13 +41,26 @@ def is_file_link(response, url):
         'application/xhtml+xml',
         'application/javascript',
         'application/json',
-        'image/x-icon',  # favicon.ico
+        'image/x-icon',
         'text/css',
         'text/javascript',
         'text/xml',
-        'text/plain',  # иногда текстовые ресурсы
+        'text/plain',
         'text/html',
+        'image/svg+xml',
+        'image/png',
         # добавь свои типы, которые НЕ считаешь файлами
+    }
+
+    WHITELIST_NOT_FILES_EXTENSIONS = {
+        '.ico',
+        '.xml',
+        '.json',
+        '.js',
+        '.css',
+        '.txt',
+        '.svg',
+        '.png',  # добавляем png в исключения
     }
 
 
@@ -47,7 +80,11 @@ def is_file_link(response, url):
         return True
 
     path = urlparse(url).path
-    if '.' in path.split('/')[-1]:  # есть расширение
+    filename = path.split('/')[-1]
+    if '.' in filename:
+        ext = '.' + filename.split('.')[-1]
+        if ext in WHITELIST_NOT_FILES_EXTENSIONS:
+            return False
         return True
 
     return False
@@ -61,10 +98,21 @@ def scan(start_url, timeout=30):
     queue = deque([start_url])
     start_time = time.time()
 
-    while queue:
+    while queue or start_url:
         if time.time() - start_time > timeout:
             logger.info('Время работы превысило лимит 30 секунд. Завершение сканирования.')
             break
+
+        if not queue:
+            # Очередь пуста — пытаемся подняться на уровень выше
+            parent_url = get_parent_url(start_url)
+            if parent_url is None or parent_url in visited:
+                logger.info('No more parents to go up, stopping.')
+                break
+            logger.info(f'Queue empty, moving up to parent URL: {parent_url}')
+            queue.append(parent_url)
+            start_url = parent_url
+            continue
 
         url = queue.popleft()
         if url in visited:
@@ -73,6 +121,8 @@ def scan(start_url, timeout=30):
         logger.info(f'Обработка URL: {url}')
         try:
             response = requests.get(url, timeout=10, stream=True)
+            if response.status_code == 304:
+                continue
         except Exception as e:
             logger.warning(f'Ошибка запроса к {url}: {e}')
             visited.add(url)
