@@ -5,6 +5,7 @@ import time
 from urllib.parse import urljoin, urlparse, urlunparse
 from collections import deque
 import sys
+import re
 
 # Настройка логгера
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -49,6 +50,7 @@ def is_file_link(response, url):
         'text/html',
         'image/svg+xml',
         'image/png',
+        'image/jpeg',
         # добавь свои типы, которые НЕ считаешь файлами
     }
 
@@ -175,7 +177,7 @@ def scan(start_url, timeout=30):
                     queue.append(abs_url)
 
             # --- Добавляем поиск ссылок внутри JS-функции downloadFile() ---
-            import re
+
             scripts = soup.find_all('script')
             for s in scripts:
                 script_text = s.string
