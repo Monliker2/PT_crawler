@@ -64,7 +64,6 @@ def is_file_link(response, url, strict=True) -> bool:
 
 
 def parse_html_for_links(soup, base_url: str, visited: set, start_url: str, queue: deque) -> None:
-    global STOP
     for tag in soup.find_all(['a', 'link', 'button']):
         href = extract_href_from_tag(tag)
         if not href:
@@ -81,7 +80,7 @@ def parse_html_for_links(soup, base_url: str, visited: set, start_url: str, queu
 
                 if is_file_link(r, abs_url, strict=strict_mode):
                     logger.info(f'Найдена ссылка на файл: {abs_url}')
-                    STOP = True
+                    state['stop'] = True
                     return  # Останов, файл найден
             except Exception as e:
                 logger.warning(f'Ошибка запроса к {abs_url}: {e}')
@@ -140,9 +139,9 @@ def scan(start_url, timeout=30):
     start_time = time.time()
 
     while queue or start_url and not state['stop']:
-        if time.time() - start_time > timeout:
-            logger.info('Время работы превысило лимит 30 секунд. Завершение сканирования.')
-            break
+        # if time.time() - start_time > timeout:
+        #     logger.info('Время работы превысило лимит 30 секунд. Завершение сканирования.')
+        #     break
 
         if not queue:
             # Очередь пуста — пытаемся подняться на уровень выше
