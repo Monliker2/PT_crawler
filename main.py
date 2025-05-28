@@ -139,9 +139,9 @@ def scan(start_url, timeout=30):
     start_time = time.time()
 
     while queue or start_url and not state['stop']:
-        # if time.time() - start_time > timeout:
-        #     logger.info('Время работы превысило лимит 30 секунд. Завершение сканирования.')
-        #     break
+        if time.time() - start_time > timeout:
+            logger.info('Время работы превысило лимит 30 секунд. Завершение сканирования.')
+            break
 
         if not queue:
             # Очередь пуста — пытаемся подняться на уровень выше
