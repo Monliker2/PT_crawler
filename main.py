@@ -15,16 +15,34 @@ def is_file_link(response, url):
     Определяет, является ли ссылка ссылкой на файл
     по заголовкам ответа и расширению URL.
     """
+    WHITELIST_NOT_FILES_CONTENT_TYPES = {
+        'application/xml',
+        'application/xhtml+xml',
+        'application/javascript',
+        'application/json',
+        'image/x-icon',  # favicon.ico
+        'text/css',
+        'text/javascript',
+        'text/xml',
+        'text/plain',  # иногда текстовые ресурсы
+        'text/html',
+        # добавь свои типы, которые НЕ считаешь файлами
+    }
+
+
     cd = response.headers.get('Content-Disposition', '')
     if 'attachment' in cd.lower():
         return True
 
     content_type = response.headers.get('Content-Type', '')
 
+    if any(content_type.startswith(t) for t in WHITELIST_NOT_FILES_CONTENT_TYPES):
+        return False
+
     logger.debug(f'Content type: {content_type}')
     logger.debug(f'Headers: {response.headers}')
 
-    if content_type and not content_type.startswith('text/html') and not content_type.startswith('video/'):
+    if content_type and not content_type.startswith('video/'):
         return True
 
     path = urlparse(url).path
