@@ -22,6 +22,7 @@ def is_file_link(response, url):
     content_type = response.headers.get('Content-Type', '')
 
     logger.debug(f'Content type: {content_type}')
+    logger.debug(f'Headers: {response.headers}')
 
     if content_type and not content_type.startswith('text/html') and not content_type.startswith('video/'):
         return True
@@ -64,16 +65,38 @@ def scan(start_url, timeout=30):
 
         if 'text/html' in response.headers.get('Content-Type', ''):
             soup = BeautifulSoup(response.text, 'html.parser')
-            for link in soup.find_all(['a', 'link'], href=True):
-                href = link['href'].strip()
+
+            # Парсим ссылки в a, link, button
+            for tag in soup.find_all(['a', 'link', 'button']):
+                href = None
+
+                # 1. Ссылка в href (a, link)
+                if tag.name in ['a', 'link'] and tag.has_attr('href'):
+                    href = tag['href'].strip()
+
+                # 2. Ссылка в onclick="location.href='/file.pdf'"
+                elif tag.has_attr('onclick'):
+                    import re
+                    onclick = tag['onclick']
+                    match = re.search(r"location\.href\s*=\s*['\"]([^'\"]+)['\"]", onclick)
+                    if match:
+                        href = match.group(1)
+
+                # 3. Ссылка в data-url
+                elif tag.has_attr('data-url'):
+                    href = tag['data-url'].strip()
+
+                if not href:
+                    continue
+
                 abs_url = urljoin(url, href)
 
-                # Пропускаем ссылки с расширениями .html и .php
+                # Пропускаем .html и .php
                 path = urlparse(abs_url).path.lower()
                 if path.endswith('.html') or path.endswith('.php'):
                     continue
 
-                # Игнорируем внешние ссылки
+                # Пропускаем внешние ссылки
                 start_domain = urlparse(start_url).netloc
                 abs_domain = urlparse(abs_url).netloc
                 if start_domain != abs_domain:
@@ -81,6 +104,21 @@ def scan(start_url, timeout=30):
 
                 if abs_url not in visited:
                     queue.append(abs_url)
+
+            # --- Добавляем поиск ссылок внутри JS-функции downloadFile() ---
+            import re
+            scripts = soup.find_all('script')
+            for s in scripts:
+                script_text = s.string
+                if script_text  and 'href' in script_text:
+                    # Ищем присвоение href в JS
+                    match = re.search(r"href\s*=\s*['\"]([^'\"]+)['\"]", script_text)
+                    if match:
+                        file_url = match.group(1)
+                        abs_url = urljoin(url, file_url)
+                        logger.info(f'Извлечена ссылка из JS downloadFile(): {abs_url}')
+                        if abs_url not in visited:
+                            queue.append(abs_url)
 
         visited.add(url)
 
