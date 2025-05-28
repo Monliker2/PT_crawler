@@ -15,6 +15,7 @@ def is_file_link(response, url):
     Определяет, является ли ссылка ссылкой на файл
     по заголовкам ответа и расширению URL.
     """
+    #TODO Дополнить whitelist легитимными Content types
     WHITELIST_NOT_FILES_CONTENT_TYPES = {
         'application/xml',
         'application/xhtml+xml',
