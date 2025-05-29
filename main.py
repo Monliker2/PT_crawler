@@ -10,11 +10,13 @@ import re
 # Настройка логгера
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-state = {'stop': False}
+START_TIME = 0
+TIMEOUT = 0
 
 # ---- Функции для обработки URL ----
 
 def get_parent_url(url: str) -> str:
+    check_time()
     """Возвращает URL родительской папки (на уровень выше)."""
     parsed = urlparse(url)
     path_parts = parsed.path.rstrip('/').split('/')
@@ -38,7 +40,7 @@ def is_file_link(response, url, strict=True) -> bool:
             'application/xml', 'application/xhtml+xml', 'application/javascript',
             'application/json', 'image/x-icon', 'text/css', 'text/javascript',
             'text/xml', 'text/plain', 'text/html', 'image/svg+xml', 'image/png',
-            'image/jpeg'
+            'image/jpeg', 'application/rss+xml', 'application/atom+xml', 'application/x-web-app-manifest+json'
         }
 
         WHITELIST_NOT_FILES_EXTENSIONS = {
@@ -64,6 +66,7 @@ def is_file_link(response, url, strict=True) -> bool:
 
 
 def parse_html_for_links(soup, base_url: str, visited: set, start_url: str, queue: deque) -> None:
+    check_time()
     for tag in soup.find_all(['a', 'link', 'button']):
         href = extract_href_from_tag(tag)
         if not href:
@@ -80,8 +83,7 @@ def parse_html_for_links(soup, base_url: str, visited: set, start_url: str, queu
 
                 if is_file_link(r, abs_url, strict=strict_mode):
                     logger.info(f'Найдена ссылка на файл: {abs_url}')
-                    state['stop'] = True
-                    return  # Останов, файл найден
+                    sys.exit()
             except Exception as e:
                 logger.warning(f'Ошибка запроса к {abs_url}: {e}')
                 continue
@@ -91,6 +93,7 @@ def parse_html_for_links(soup, base_url: str, visited: set, start_url: str, queu
 
 def extract_href_from_tag(tag) -> str:
     """Извлекает href из тега a, link, button, включая обработку onclick и data-url."""
+    check_time()
     href = None
     if tag.name in ['a', 'link'] and tag.has_attr('href'):
         href = tag['href'].strip()
@@ -107,6 +110,7 @@ def extract_href_from_tag(tag) -> str:
 
 def is_internal_link(start_url: str, abs_url: str) -> bool:
     """Проверяет, является ли ссылка внутренней (тот же домен)."""
+    check_time()
     start_domain = urlparse(start_url).netloc
     abs_domain = urlparse(abs_url).netloc
     return start_domain == abs_domain
@@ -114,6 +118,7 @@ def is_internal_link(start_url: str, abs_url: str) -> bool:
 
 def parse_js_for_links(soup, base_url: str, visited: set, queue: deque) -> None:
     """Извлекает ссылки из JS-скриптов."""
+    check_time()
     scripts = soup.find_all('script')
     for s in scripts:
         script_text = s.string
@@ -127,21 +132,29 @@ def parse_js_for_links(soup, base_url: str, visited: set, queue: deque) -> None:
                 if abs_url not in visited:
                     if is_file_link(r, abs_url, strict=False):
                         logger.info(f'Найдена ссылка на файл: {abs_url}')
-                        state['stop'] = True
-                        return
+                        sys.exit()
+
+def check_time():
+    """Проверяет, не превышено ли время выполнения скрипта."""
+    global TIMEOUT
+    global START_TIME
+
+    logger.debug(f'Скан идет {round(time.time() - START_TIME, 2)} секунд')
+    if time.time() - START_TIME > TIMEOUT > 0:
+        logger.info(f'Время работы превысило лимит {TIMEOUT} секунд. Завершение сканирования.')
+        sys.exit()
 
 # ---- Основная функция обхода ----
 
-def scan(start_url, timeout=30):
+def scan(start_url):
     """Основная функция сканирования сайта."""
+    global START_TIME
     visited = set()
     queue = deque([start_url])
-    start_time = time.time()
+    START_TIME = time.time()
 
-    while queue or start_url and not state['stop']:
-        if time.time() - start_time > timeout:
-            logger.info('Время работы превысило лимит 30 секунд. Завершение сканирования.')
-            break
+    while queue or start_url:
+        check_time()
 
         if not queue:
             # Очередь пуста — пытаемся подняться на уровень выше
@@ -188,6 +201,7 @@ def scan(start_url, timeout=30):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        logger.error("Использование: python script.py https://example.com/page")
+        logger.error("Использование: python main.py https://example.com/page [таймаут]")
         sys.exit(1)
+    TIMEOUT = int(sys.argv[2]) if len(sys.argv) > 2 else 30
     scan(sys.argv[1])
