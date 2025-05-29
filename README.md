@@ -28,7 +28,7 @@
 ## Конфигурация
 
 1. Получите API-ключ на сайте VirusTotal: [https://www.virustotal.com/](https://www.virustotal.com/)
-2. Создайте файл `virustotal_api.py` и задайте:
+2. Создайте файл `.env` и задайте:
 
    ```python
    VIRUS_TOTAL_API=YOUR_API_KEY
