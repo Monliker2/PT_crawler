@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import logging
+import logging.handlers
 import time
 from urllib.parse import urljoin, urlparse, urlunparse
 from collections import deque
@@ -9,8 +10,15 @@ import re
 from virustotal_api import get_scan_result_by_url
 
 # Настройка логгера
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+syslog_handler = logging.handlers.SysLogHandler(address='/dev/log')
+formatter = logging.Formatter('%(asctime)s %(name)s: %(levelname)s %(message)s')
+syslog_handler.setFormatter(formatter)
+logger.addHandler(syslog_handler)
+
+
 START_TIME = 0
 TIMEOUT = 0
 
