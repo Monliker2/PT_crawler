@@ -6,6 +6,7 @@ from urllib.parse import urljoin, urlparse, urlunparse
 from collections import deque
 import sys
 import re
+from virustotal_api import get_scan_result_by_url
 
 # Настройка логгера
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -83,7 +84,12 @@ def parse_html_for_links(soup, base_url: str, visited: set, start_url: str, queu
 
                 if is_file_link(r, abs_url, strict=strict_mode):
                     logger.info(f'Найдена ссылка на файл: {abs_url}')
-                    sys.exit()
+                    if use_virustotal:
+                        check_with_virustotal(abs_url)
+                        break
+                    else:
+                        sys.exit()
+                    break
             except Exception as e:
                 logger.warning(f'Ошибка запроса к {abs_url}: {e}')
                 continue
@@ -132,12 +138,17 @@ def parse_js_for_links(soup, base_url: str, visited: set, queue: deque) -> None:
                 if abs_url not in visited:
                     if is_file_link(r, abs_url, strict=False):
                         logger.info(f'Найдена ссылка на файл: {abs_url}')
-                        sys.exit()
+                        if use_virustotal:
+                            check_with_virustotal(abs_url)
+                        else:
+                            sys.exit()
+                        break
 
 def check_time():
     """Проверяет, не превышено ли время выполнения скрипта."""
     global TIMEOUT
     global START_TIME
+
 
     logger.debug(f'Скан идет {round(time.time() - START_TIME, 2)} секунд')
     if time.time() - START_TIME > TIMEOUT > 0:
@@ -146,7 +157,7 @@ def check_time():
 
 # ---- Основная функция обхода ----
 
-def scan(start_url):
+def scan(start_url, use_virustotal=False):
     """Основная функция сканирования сайта."""
     global START_TIME
     visited = set()
@@ -183,6 +194,10 @@ def scan(start_url):
 
         if is_file_link(response, url):
             logger.info(f'Найдена ссылка на файл: {url}')
+            if use_virustotal:
+                check_with_virustotal(url)
+            else:
+                sys.exit()
             break
 
         if 'text/html' in response.headers.get('Content-Type', ''):
@@ -197,11 +212,32 @@ def scan(start_url):
         visited.add(url)
 
 
+def check_with_virustotal(url: str) -> None:
+    """Проверяет файл с помощью VirusTotal."""
+    logger.info(f"Запуск VirusTotal проверки для: {url}")
+    try:
+        result = get_scan_result_by_url(url)
+        logger.info(f"VirusTotal результат для {url}:\n"
+                    f"Malicious: {result['last_analysis_stats']['malicious']}, "
+                    f"Suspicious: {result['last_analysis_stats']['suspicious']}, "
+                    f"Undetected: {result['last_analysis_stats']['undetected']}")
+        sys.exit()
+    except Exception as e:
+        logger.error(f"Ошибка при проверке VirusTotal: {e}")
+
 # ---- Запуск скрипта ----
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        logger.error("Использование: python main.py https://example.com/page [таймаут]")
+        logger.error("Использование: python main.py <URL> [таймаут] [--vt]")
         sys.exit(1)
-    TIMEOUT = int(sys.argv[2]) if len(sys.argv) > 2 else 30
-    scan(sys.argv[1])
+
+    start_url = sys.argv[1]
+    TIMEOUT = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else 30
+
+    if '--vt' in sys.argv or '--virustotal' in sys.argv:
+        use_virustotal = True
+    else:
+        use_virustotal = False
+
+    scan(start_url, use_virustotal=use_virustotal)
