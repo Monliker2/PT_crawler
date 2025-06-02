@@ -10,11 +10,12 @@ import re
 from virustotal_api import get_scan_result_by_url
 
 # Настройка логгера
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('crawler')
 logger.setLevel(logging.INFO)
 
 syslog_handler = logging.handlers.SysLogHandler(address='/dev/log')
-formatter = logging.Formatter('%(asctime)s %(name)s: %(levelname)s %(message)s')
+#formatter = logging.Formatter('%(asctime)s %(name)s: %(message)s')
+formatter = logging.Formatter('%(name)s[%(process)d]: %(message)s')
 syslog_handler.setFormatter(formatter)
 logger.addHandler(syslog_handler)
 
