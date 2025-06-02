@@ -1,0 +1,16 @@
+[Unit]
+Description=Watch folder and process links script
+After=network.target
+
+[Service]
+User=user
+Type=simple
+ExecStart=/home/user/monitor_mail/monitor_mail.sh
+Restart=always
+RestartSec=5
+#StandardOutput=file:/var/log/watch_links.log
+#StandardError=file:/var/log/watch_links.err
+SyslogIdentifier=crawler
+
+[Install]
+WantedBy=multi-user.target

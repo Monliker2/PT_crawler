@@ -15,7 +15,8 @@ logger.setLevel(logging.INFO)
 
 syslog_handler = logging.handlers.SysLogHandler(address='/dev/log')
 #formatter = logging.Formatter('%(asctime)s %(name)s: %(message)s')
-formatter = logging.Formatter('%(name)s[%(process)d]: %(message)s')
+#formatter = logging.Formatter('%(name)s[%(process)d]: %(message)s')
+formatter = logging.Formatter('%(name)s: %(message)s')
 syslog_handler.setFormatter(formatter)
 logger.addHandler(syslog_handler)
 
@@ -92,7 +93,7 @@ def parse_html_for_links(soup, base_url: str, visited: set, start_url: str, queu
                 strict_mode = tag.name == 'link'
 
                 if is_file_link(r, abs_url, strict=strict_mode):
-                    logger.info(f'Найдена ссылка на файл: {abs_url}')
+                    logger.info(f'File in link FOUND: {abs_url}')
                     if use_virustotal:
                         check_with_virustotal(abs_url)
                         break
@@ -146,7 +147,7 @@ def parse_js_for_links(soup, base_url: str, visited: set, queue: deque) -> None:
                 r = requests.get(abs_url, timeout=10, stream=True)
                 if abs_url not in visited:
                     if is_file_link(r, abs_url, strict=False):
-                        logger.info(f'Найдена ссылка на файл: {abs_url}')
+                        logger.info(f'File in link FOUND: {abs_url}')
                         if use_virustotal:
                             check_with_virustotal(abs_url)
                         else:
@@ -202,7 +203,7 @@ def scan(start_url, use_virustotal=False):
             continue
 
         if is_file_link(response, url):
-            logger.info(f'Найдена ссылка на файл: {url}')
+            logger.info(f'File in link FOUND: {url}')
             if use_virustotal:
                 check_with_virustotal(url)
             else:
