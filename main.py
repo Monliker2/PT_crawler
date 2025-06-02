@@ -15,8 +15,8 @@ logger.setLevel(logging.INFO)
 
 syslog_handler = logging.handlers.SysLogHandler(address='/dev/log')
 #formatter = logging.Formatter('%(asctime)s %(name)s: %(message)s')
-#formatter = logging.Formatter('%(name)s[%(process)d]: %(message)s')
-formatter = logging.Formatter('%(name)s: %(message)s')
+formatter = logging.Formatter('%(name)s[%(process)d]: %(message)s')
+#formatter = logging.Formatter('%(name)s: %(message)s')
 syslog_handler.setFormatter(formatter)
 logger.addHandler(syslog_handler)
 
